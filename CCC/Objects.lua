@@ -42,6 +42,7 @@ Test.cast = Cast
 
 function Cast.new()
 	local self = setmetatable({}, Cast)
+	self.time = Time.Now()
 	self.status = 10
 	self.type = "cast"
 	self.players = {}

@@ -53,6 +53,7 @@ function CCC:OnLoad()
 	Apollo.RegisterEventHandler("CombatLogCCState", "OnCCState", self)
 	Apollo.RegisterTimerHandler("OnSpellEndTimer", "OnSET", self)
 	Apollo.RegisterSlashCommand("ccc", "OnCCCOn", self)
+	Apollo.RegisterSlashCommand("colorcc", "OnColorOn", self)
 end
 
 -----------------------------------------------------------------------------------------------
@@ -82,7 +83,7 @@ function CCC:OnDocLoaded()
 		self.curDisplay = {}
 		self.output = "p"
 		self.limit = 6
-				
+		ApolloColor.SetColor("default", {r=1, g=1, b=1, a=0.37})			
 	    self.wndMain:Show(false, true)
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
@@ -136,7 +137,7 @@ function CCC:OnUpdateDisplay()
 						text = text .. " " .. v3.name .. "(" .. v3.ia .. ")"
 					end
 					self.curDisplay[key]:SetText(text)
-					self.curDisplay[key]:SetData({type = "spell", name = v.name, text = text, status = v2.status})
+					self.curDisplay[key]:SetData({type = "cspell", name = v.name, text = text, status = v2.status})
 					self.curDisplay[key]:FindChild("CC"):SetText(v2.status)
 				end
 			end					
@@ -152,6 +153,14 @@ function CCC:OnCCCOn(cmd, arg)
 	end
 	self:OnUpdateDisplay()
 	self.wndMain:Show(true, false)
+end
+
+function CCC:OnColorOn(cmd, arg)
+	self.wndMain:SetBGColor(ApolloColor.new(arg))
+	self.wndMain:FindChild("Title"):SetTextColor(arg)
+	self.wndMain:FindChild("CloseButton"):SetBGColor(arg)
+	self.wndMain:FindChild("ResetButton"):SetBGColor(arg)
+	self.wndMain:FindChild("SetupButton"):SetBGColor(arg)
 end
 
 function CCC:OnCCState(tEventArgs)
@@ -260,6 +269,17 @@ function CCC:OnCancel()
 end
 
 
+function CCC:OnResetPressed( wndHandler, wndControl, eMouseButton )
+	self.cur = nil
+	self.type = "list"
+	self.list = {}
+	self.castingTarget = {}
+	self.castTime = {}
+	self.ids = {}
+	self.displayChanged = true
+	self:OnUpdateDisplay()
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Item Functions
 ---------------------------------------------------------------------------------------------------
@@ -272,9 +292,19 @@ function CCC:SetDisplay( wndHandler, wndControl, eMouseButton, nLastRelativeMous
 			self.displayChanged = true
 			self.cur = data
 			self:OnUpdateDisplay()
-		elseif data.type == "spell" then
-			local stat = (data.status == 0) and "Interrompu" or "Lancé"
+		elseif data.type == "cspell" then
+			local stat = (data.status == 0) and "Stopped" or "Casted"
 			ChatSystemLib.Command("/" .. self.output .. " " .. data.name .. "(" .. stat .. "):" .. data.text)
+		elseif data.type == "spell" then
+			ChatSystemLib.Command("/" .. self.output .. " " .. data.name .. " : ")
+			for k,v in pairs(data.cast) do
+				local stat = (v.status == 0) and "Stopped" or "Casted"
+				local text = ""
+				for k2,v2 in pairs(v.players) do
+					text = text .. " " .. v2.name .. "(" .. v2.ia .. ")"
+				end
+				ChatSystemLib.Command("/" .. self.output .. " " .. k .. ": " ..  stat .. " - " .. text)
+			end
 		end
 	elseif GameLib.CodeEnumInputMouse.Right == eMouseButton then
 		self.type = "list"
