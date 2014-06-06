@@ -1,5 +1,4 @@
 local Test = Apollo.GetAddon("CCC")
-local inspect = Apollo.GetPackage("drafto_inspect-1.1").tPackage
 local Target = {}
 Target.__index = Target
 

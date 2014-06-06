@@ -9,7 +9,6 @@ require "Window"
 -- CCC Module Definition
 -----------------------------------------------------------------------------------------------
 local CCC = {} 
-local inspect
 local target
 local spell
 local cast
@@ -38,7 +37,7 @@ function CCC:Init()
 	local tDependencies = {
 		-- "UnitOrPackageName",
 	}
-    Apollo.RegisterAddon(self, false, "",{})
+    Apollo.RegisterAddon(self, true)
 end
  
 
@@ -47,7 +46,6 @@ end
 -----------------------------------------------------------------------------------------------
 function CCC:OnLoad()
     -- load our form file
-	inspect = Apollo.GetPackage("drafto_inspect-1.1").tPackage
 	self.xmlDoc = XmlDoc.CreateFromFile("CCC.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 	Apollo.RegisterEventHandler("CombatLogCCState", "OnCCState", self)
@@ -56,11 +54,39 @@ function CCC:OnLoad()
 	Apollo.RegisterSlashCommand("colorcc", "OnColorOn", self)
 end
 
+function CCC:OnSave(eType)
+	local tSave =
+	{
+		show = self.show,
+		color = self.color,
+		limit = self.limit,
+		focus = self.focus,
+	}
+
+	return tSave
+end
+
+function CCC:OnRestore(eType, tSavedData)
+	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then
+		return
+	end
+	if tSavedData then
+		self.show = tSavedData.show
+		self.color = tSavedData.color
+		self.limit = tSavedData.limit
+		self.focus = tSavedData.focus
+	else
+		self.show = false
+		self.color = "default"
+		self.limit = 10
+		self.focus = false
+	end
+end
+
 -----------------------------------------------------------------------------------------------
 -- CCC OnDocLoaded
 -----------------------------------------------------------------------------------------------
 function CCC:OnDocLoaded()
-
 	if self.xmlDoc ~= nil and self.xmlDoc:IsLoaded() then
 	    self.wndMain = Apollo.LoadForm(self.xmlDoc, "CCCForm", nil, self)
 		if self.wndMain == nil then
@@ -82,9 +108,10 @@ function CCC:OnDocLoaded()
 		self.displayChanged = true
 		self.curDisplay = {}
 		self.output = "p"
-		self.limit = 6
-		ApolloColor.SetColor("default", {r=1, g=1, b=1, a=0.37})			
-	    self.wndMain:Show(false, true)
+		ApolloColor.SetColor("default", {r=1, g=1, b=1, a=0.37})
+		self:OnUpdateDisplay()
+		self:OnColorOn(nil, self.color)
+	    self.wndMain:Show(self.show, true)
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
 		
@@ -98,6 +125,21 @@ end
 -- CCC Functions
 -----------------------------------------------------------------------------------------------
 -- Define general functions here
+function CCC:OnConfigure()
+	self.wndOptions = Apollo.LoadForm(self.xmlDoc, "OptionMenu", nil, self)
+	self.res = Apollo.LoadForm(self.xmlDoc, "Options", self.wndOptions:FindChild("Content"), self)
+	self.wndColor = self.res:FindChild("Form"):FindChild("Window"):FindChild("Window"):FindChild("EditBox")
+	self.wndLimit = self.res:FindChild("Form1"):FindChild("Window"):FindChild("Window"):FindChild("EditBox")
+	self.wndFocus = self.res:FindChild("Form1"):FindChild("Window1"):FindChild("Button")
+	self:SetOptionsValues()
+	self.wndOptions:Show(true, true)
+end
+
+function CCC:SetOptionsValues()
+	self.wndFocus:SetCheck(self.focus)
+	self.wndLimit:SetText(self.limit)
+end
+
 function CCC:OnUpdateDisplay()
 	local title = self.wndMain:FindChild("Title")
 	local win = self.wndMain:FindChild("Window")
@@ -152,6 +194,7 @@ function CCC:OnCCCOn(cmd, arg)
 		self.output = arg
 	end
 	self:OnUpdateDisplay()
+	self.show = true
 	self.wndMain:Show(true, false)
 end
 
@@ -161,6 +204,7 @@ function CCC:OnColorOn(cmd, arg)
 	self.wndMain:FindChild("CloseButton"):SetBGColor(arg)
 	self.wndMain:FindChild("ResetButton"):SetBGColor(arg)
 	self.wndMain:FindChild("SetupButton"):SetBGColor(arg)
+	self.color = arg
 end
 
 function CCC:OnCCState(tEventArgs)
@@ -168,6 +212,12 @@ function CCC:OnCCState(tEventArgs)
 		return
 	end
 	local nTarget = tEventArgs.unitTarget
+	if nTarget == nil then
+		return
+	end
+	if self.focus and GameLib.GetPlayerUnit():GetTarget() ~= nTarget then
+		return
+	end
 	local nTId = nTarget:GetId()
 	local nCaster = tEventArgs.unitCaster
 	local nCId = nCaster:GetId()
@@ -265,6 +315,7 @@ end
 
 -- when the Cancel button is clicked
 function CCC:OnCancel()
+	self.show = false
 	self.wndMain:Close() -- hide the window
 end
 
@@ -278,6 +329,15 @@ function CCC:OnResetPressed( wndHandler, wndControl, eMouseButton )
 	self.ids = {}
 	self.displayChanged = true
 	self:OnUpdateDisplay()
+end
+
+function CCC:OnShowMenu( wndHandler, wndControl, eMouseButton )
+	if self.wndOptions then
+		self:SetOptionsValues()
+		self.wndOptions:Show(true, true)
+	else
+		self:OnConfigure()
+	end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -312,7 +372,26 @@ function CCC:SetDisplay( wndHandler, wndControl, eMouseButton, nLastRelativeMous
 		self.cur = nil
 		self:OnUpdateDisplay()
 	end
+
+---------------------------------------------------------------------------------------------------
+-- OptionMenu Functions
+---------------------------------------------------------------------------------------------------
 end
+function CCC:OnOkButton( wndHandler, wndControl, eMouseButton )
+	local color = self.res:FindChild("Form"):FindChild("Window"):FindChild("Window"):FindChild("EditBox"):GetText()
+	local limit = self.res:FindChild("Form1"):FindChild("Window"):FindChild("Window"):FindChild("EditBox"):GetText()
+	limit = tonumber(limit)
+	self.focus = self.res:FindChild("Form1"):FindChild("Window1"):FindChild("Button"):IsChecked()
+	if limit == nil or limit == "" then
+		limit = 10
+	end
+	self.limit = limit
+	if color ~= nil and color ~= "" then
+		self:OnColorOn(nil, color)
+	end
+	self.wndOptions:Close()
+end
+
 -----------------------------------------------------------------------------------------------
 -- CCC Instance
 -----------------------------------------------------------------------------------------------
