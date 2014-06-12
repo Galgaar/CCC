@@ -61,6 +61,7 @@ function CCC:OnSave(eType)
 		color = self.color,
 		limit = self.limit,
 		focus = self.focus,
+		anchor = {self.wndMain:GetAnchorOffsets()},
 	}
 
 	return tSave
@@ -75,6 +76,7 @@ function CCC:OnRestore(eType, tSavedData)
 		self.color = tSavedData.color
 		self.limit = tSavedData.limit
 		self.focus = tSavedData.focus
+		self.anchor = tSavedData.anchor
 	else
 		self.show = false
 		self.color = "default"
@@ -99,6 +101,18 @@ function CCC:OnDocLoaded()
 		cast = self.cast
 		player = self.player
 		
+		if self.color == nil then
+			self.color = "default"
+		end
+		if self.limit == nil then
+			self.limit = 10
+		end
+		if self.focus == nil then
+			self.focus = false
+		end
+		if self.show == nil then
+			self.show = false
+		end
 		self.cur = nil
 		self.type = "list"
 		self.list = {}
@@ -110,6 +124,9 @@ function CCC:OnDocLoaded()
 		self.output = "p"
 		ApolloColor.SetColor("default", {r=1, g=1, b=1, a=0.37})
 		self:OnUpdateDisplay()
+		if self.anchor ~= nil then
+			self.wndMain:SetAnchorOffsets(unpack(self.anchor))
+		end
 		self:OnColorOn(nil, self.color)
 	    self.wndMain:Show(self.show, true)
 		-- if the xmlDoc is no longer needed, you should set it to nil
@@ -220,6 +237,9 @@ function CCC:OnCCState(tEventArgs)
 	end
 	local nTId = nTarget:GetId()
 	local nCaster = tEventArgs.unitCaster
+	if nCaster == nil then
+		return
+	end
 	local nCId = nCaster:GetId()
 	if not nCaster:IsThePlayer() and not nCaster:IsInYourGroup() then
 		return
